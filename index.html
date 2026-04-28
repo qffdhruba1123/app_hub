@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weight Tracker 💪</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f1a;
+            --card: #1a1a2e;
+            --accent: #e94560;
+            --accent2: #0f3460;
+            --text: #eaeaea;
+            --muted: #888;
+            --green: #4ecca3;
+            --red: #e94560;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 20px 10px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, var(--accent), #ff6b6b, #ffd93d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        #motivation {
+            font-size: 1.1rem;
+            margin-top: 8px;
+            color: var(--muted);
+            min-height: 1.5em;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 16px 22px;
+            text-align: center;
+            flex: 1;
+            min-width: 140px;
+            max-width: 200px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .stat-card .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .stat-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 4px; }
+        .stat-card .emoji { font-size: 1.4rem; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.hidden { display: none; }
+
+        .modal {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid #2a2a4a;
+            animation: popIn 0.3s ease;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal h2 { font-size: 1.6rem; margin-bottom: 6px; }
+        .modal .modal-emoji { font-size: 3rem; margin-bottom: 10px; }
+        .modal .modal-sub { color: var(--muted); margin-bottom: 20px; font-size: 0.95rem; }
+
+        .modal input[type="number"] {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: 2px solid #2a2a4a;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 1.8rem;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .modal input[type="number"]:focus { border-color: var(--accent); }
+        .modal input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        .unit-toggle {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .unit-toggle button {
+            padding: 6px 16px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+            background: var(--bg);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .unit-toggle button.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            padding: 12px 32px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 16px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover { background: #d63851; transform: translateY(-1px); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+        .btn-ghost:hover { color: var(--text); }
+
+        /* Sections */
+        .section {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .section-header h2 { font-size: 1.2rem; }
+
+        /* Calendar */
+        .cal-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .cal-nav button {
+            background: var(--bg);
+            border: 1px solid #2a2a4a;
+            color: var(--text);
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .cal-nav button:hover { background: #2a2a4a; }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .cal-day-header {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--muted);
+            padding: 4px 0;
+            text-transform: uppercase;
+        }
+
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            position: relative;
+            cursor: default;
+            transition: background 0.2s;
+        }
+
+        .cal-day.empty { opacity: 0; }
+
+        .cal-day.has-weight {
+            background: rgba(78, 204, 163, 0.2);
+            border: 1px solid rgba(78, 204, 163, 0.4);
+            cursor: pointer;
+        }
+
+        .cal-day.has-weight:hover { background: rgba(78, 204, 163, 0.35); }
+
+        .cal-day.today {
+            border: 2px solid var(--accent);
+        }
+
+        .cal-day .weight-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--green);
+            margin-top: 2px;
+        }
+
+        .cal-day .day-weight {
+            font-size: 0.6rem;
+            color: var(--green);
+            margin-top: 1px;
+        }
+
+        /* Graph */
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Log button */
+        .fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(233,69,96,0.4);
+            transition: all 0.2s;
+            z-index: 100;
+        }
+
+        .fab:hover { transform: scale(1.1); box-shadow: 0 6px 25px rgba(233,69,96,0.5); }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--card);
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            z-index: 50;
+            white-space: nowrap;
+        }
+
+        /* Edit/Delete controls */
+        .entry-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
+        .entry-actions button {
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+            background: var(--bg);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .entry-actions button:hover { color: var(--text); background: #2a2a4a; }
+        .entry-actions button.delete:hover { color: var(--red); border-color: var(--red); }
+
+        /* Streak flame */
+        .streak-flame {
+            display: inline-block;
+            animation: flicker 1s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0% { transform: scale(1) rotate(-2deg); }
+            100% { transform: scale(1.1) rotate(2deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            header h1 { font-size: 1.6rem; }
+            .modal { padding: 28px 20px; }
+            .stat-card { min-width: 100px; padding: 12px 14px; }
+            .stat-card .value { font-size: 1.3rem; }
+            .chart-container { height: 220px; }
+        }
+
+        /* Data management */
+        .data-actions {
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 40px;
+        }
+
+        .data-actions button {
+            padding: 8px 18px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+            background: var(--bg);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin: 0 4px;
+            transition: all 0.2s;
+        }
+
+        .data-actions button:hover { color: var(--text); background: #2a2a4a; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚖️ Weight Tracker</h1>
+        <div id="motivation"></div>
+    </header>
+
+    <div class="container">
+        <!-- Stats -->
+        <div class="stats-bar" id="stats-bar"></div>
+
+        <!-- Chart -->
+        <div class="section">
+            <div class="section-header">
+                <h2>📈 Trend</h2>
+                <div>
+                    <select id="chart-range" style="background:var(--bg);color:var(--text);border:1px solid #2a2a4a;border-radius:8px;padding:4px 10px;font-size:0.85rem;">
+                        <option value="7">7 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="90">90 days</option>
+                        <option value="all">All time</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="weight-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="section">
+            <div class="section-header">
+                <h2>📅 Calendar</h2>
+                <div class="cal-nav">
+                    <button id="cal-prev">‹</button>
+                    <span id="cal-month-label"></span>
+                    <button id="cal-next">›</button>
+                </div>
+            </div>
+            <div class="cal-grid" id="cal-grid"></div>
+        </div>
+
+        <!-- Data management -->
+        <div class="data-actions">
+            <button onclick="exportData()">📥 Export Data</button>
+            <button onclick="document.getElementById('import-file').click()">📤 Import Data</button>
+            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+            <button class="delete" onclick="clearAllData()" style="color:var(--red)">🗑️ Clear All Data</button>
+        </div>
+    </div>
+
+    <!-- Daily prompt modal -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-emoji" id="modal-emoji">🌅</div>
+            <h2 id="modal-title">Good morning!</h2>
+            <p class="modal-sub" id="modal-sub">Time to step on the scale of truth...</p>
+            <div class="unit-toggle" id="unit-toggle">
+                <button class="active" data-unit="kg" onclick="setUnit('kg')">kg</button>
+                <button data-unit="lbs" onclick="setUnit('lbs')">lbs</button>
+            </div>
+            <input type="number" id="weight-input" placeholder="0.0" step="0.1" min="20" max="700" autofocus>
+            <div id="modal-edit-date" style="font-size:0.8rem;color:var(--muted);margin-top:8px;"></div>
+            <br>
+            <button class="btn btn-primary" onclick="saveWeight()">Log it! 💪</button>
+            <br>
+            <button class="btn btn-ghost" onclick="closeModal()">Skip for now</button>
+            <div class="entry-actions" id="edit-actions" style="display:none;">
+                <button class="delete" onclick="deleteEntry()">🗑️ Delete this entry</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAB -->
+    <button class="fab" onclick="openModal()" title="Log today's weight">+</button>
+
+    <script>
+        // ─── Data Layer (localStorage) ───
+        const STORAGE_KEY = 'weightTrackerData';
+        const SETTINGS_KEY = 'weightTrackerSettings';
+
+        function getData() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+            } catch {
+                return {};
+            }
+        }
+
+        function saveData(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        function getSettings() {
+            try {
+                return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || { unit: 'kg' };
+            } catch {
+                return { unit: 'kg' };
+            }
+        }
+
+        function saveSettings(s) {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+        }
+
+        function todayStr() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+
+        // ─── Unit handling ───
+        let currentUnit = getSettings().unit || 'kg';
+        let editingDate = null;
+
+        function setUnit(u) {
+            currentUnit = u;
+            saveSettings({ ...getSettings(), unit: u });
+            document.querySelectorAll('#unit-toggle button').forEach(b => {
+                b.classList.toggle('active', b.dataset.unit === u);
+            });
+            renderAll();
+        }
+
+        function displayWeight(kg) {
+            if (currentUnit === 'lbs') return (kg * 2.20462).toFixed(1);
+            return Number(kg).toFixed(1);
+        }
+
+        function toKg(val) {
+            if (currentUnit === 'lbs') return val / 2.20462;
+            return val;
+        }
+
+        // ─── Humor Engine ───
+        const greetings = [
+            { emoji: '🌅', title: 'Rise and shine!', sub: 'The scale awaits your magnificent presence...' },
+            { emoji: '☕', title: 'Coffee first, then truth!', sub: 'Let\'s see what gravity thinks of you today...' },
+            { emoji: '🪞', title: 'Mirror mirror on the wall...', sub: '...who\'s the most data-driven of them all?' },
+            { emoji: '🎰', title: 'Spin the wheel!', sub: 'Step on the scale and let\'s see today\'s lucky number!' },
+            { emoji: '🔮', title: 'The oracle speaks!', sub: 'The scale has a prophecy for you today...' },
+            { emoji: '🎪', title: 'Step right up!', sub: 'The incredible weighing machine awaits!' },
+            { emoji: '🧘', title: 'Find your center...', sub: '...then find your center of gravity on that scale.' },
+            { emoji: '🚀', title: 'Houston, we have a weigh-in!', sub: 'Report your gravitational data, astronaut.' },
+        ];
+
+        const motivations = {
+            down: [
+                '💪 Gains! The scale is scared of you!',
+                '🔥 You\'re literally on fire! (Not literally. Please don\'t be on fire.)',
+                '👑 Bow down to the weight-loss royalty!',
+                '🏋️ Gravity is losing its grip on you!',
+                '🦸 Is it a bird? A plane? No, it\'s you getting lighter!',
+                '📉 Stonks! (but like, the good kind)',
+                '🎯 Sniping those pounds like a pro!',
+                '🧈 Melting away like butter on a hot pan!',
+            ],
+            up: [
+                '🍕 The pizza sends its regards.',
+                '📈 Building mass! Bulk season never ends!',
+                '🏗️ Constructing a bigger, more powerful you!',
+                '🐻 Bear mode: activated. Hibernation gains!',
+                '💎 You\'re just becoming more... substantial.',
+                '🌍 Don\'t worry, the Earth gained weight too. Probably.',
+                '🎂 Your body is just celebrating something. Let it.',
+                '🦴 It\'s obviously bone density. Very dense bones.',
+            ],
+            same: [
+                '⚖️ Perfectly balanced, as all things should be.',
+                '🎯 Consistency is your middle name!',
+                '🤖 Are you even human? That precision is suspicious.',
+                '🧱 Solid as a rock. Literally unchanged.',
+                '🔒 Weight: locked in. Vault secure.',
+            ],
+            start: [
+                '🌟 Every journey begins with a single weigh-in!',
+                '📊 Data collection: initiated. Science is happening!',
+                '🎬 And... action! Your weight loss movie starts now!',
+                '🗺️ You\'ve placed your first pin on the map. Adventure awaits!',
+            ]
+        };
+
+        function getMotivation(data) {
+            const entries = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+            if (entries.length === 0) return randomFrom(motivations.start);
+            if (entries.length === 1) return randomFrom(motivations.start);
+
+            const recent = entries.slice(-7);
+            if (recent.length < 2) return randomFrom(motivations.same);
+
+            const first = recent[0][1];
+            const last = recent[recent.length - 1][1];
+            const diff = last - first;
+
+            if (diff < -0.3) return randomFrom(motivations.down);
+            if (diff > 0.3) return randomFrom(motivations.up);
+            return randomFrom(motivations.same);
+        }
+
+        function randomFrom(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        // ─── Stats ───
+        function renderStats() {
+            const data = getData();
+            const entries = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+            const bar = document.getElementById('stats-bar');
+
+            if (entries.length === 0) {
+                bar.innerHTML = '<div class="stat-card"><div class="label">No data yet</div><div class="value">🏁</div><div class="label">Log your first weight!</div></div>';
+                return;
+            }
+
+            const latest = entries[entries.length - 1];
+            const first = entries[0];
+            const totalChange = latest[1] - first[1];
+            const streak = calcStreak(data);
+
+            // Weekly trend
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const weekEntries = entries.filter(([d]) => new Date(d) >= weekAgo);
+            const weeklyChange = weekEntries.length >= 2
+                ? weekEntries[weekEntries.length-1][1] - weekEntries[0][1]
+                : 0;
+
+            let trendEmoji = '⚖️';
+            if (totalChange < -2) trendEmoji = '💪🔥';
+            else if (totalChange < -0.5) trendEmoji = '💪';
+            else if (totalChange > 2) trendEmoji = '🐻';
+            else if (totalChange > 0.5) trendEmoji = '📈';
+
+            bar.innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Current</div>
+                    <div class="value">${displayWeight(latest[1])}</div>
+                    <div class="label">${currentUnit}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Change</div>
+                    <div class="value" style="color:${totalChange <= 0 ? 'var(--green)' : 'var(--red)'}">
+                        ${totalChange <= 0 ? '' : '+'}${displayWeight(Math.abs(totalChange) + (currentUnit === 'lbs' ? (totalChange <= 0 ? -Math.abs(totalChange)*2.20462 + Math.abs(totalChange)*2.20462 : 0) : 0)).replace(/^/, totalChange < 0 ? '-' : (totalChange > 0 ? '+' : ''))}
+                    </div>
+                    <div class="emoji">${trendEmoji}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">7-Day Trend</div>
+                    <div class="value" style="color:${weeklyChange <= 0 ? 'var(--green)' : 'var(--red)'}">
+                        ${weeklyChange === 0 ? '—' : (weeklyChange < 0 ? '↓' : '↑') + ' ' + displayWeight(Math.abs(weeklyChange))}
+                    </div>
+                    <div class="label">${currentUnit}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Streak</div>
+                    <div class="value">${streak}${streak >= 3 ? '<span class="streak-flame">🔥</span>' : ''}</div>
+                    <div class="label">day${streak !== 1 ? 's' : ''}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Entries</div>
+                    <div class="value">${entries.length}</div>
+                    <div class="label">weigh-ins</div>
+                </div>
+            `;
+        }
+
+        function calcStreak(data) {
+            let streak = 0;
+            const d = new Date();
+            while (true) {
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                if (data[key] !== undefined) {
+                    streak++;
+                    d.setDate(d.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+            return streak;
+        }
+
+        // ─── Calendar ───
+        let calYear, calMonth;
+        (function initCal() {
+            const now = new Date();
+            calYear = now.getFullYear();
+            calMonth = now.getMonth();
+        })();
+
+        function renderCalendar() {
+            const data = getData();
+            const grid = document.getElementById('cal-grid');
+            const label = document.getElementById('cal-month-label');
+
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            label.textContent = `${monthNames[calMonth]} ${calYear}`;
+
+            const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+            let html = dayNames.map(d => `<div class="cal-day-header">${d}</div>`).join('');
+
+            const firstDay = new Date(calYear, calMonth, 1);
+            let startDay = firstDay.getDay() - 1;
+            if (startDay < 0) startDay = 6;
+
+            const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+            const today = new Date();
+
+            for (let i = 0; i < startDay; i++) {
+                html += '<div class="cal-day empty"></div>';
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const hasWeight = data[dateStr] !== undefined;
+                const isToday = today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d;
+
+                let classes = 'cal-day';
+                if (hasWeight) classes += ' has-weight';
+                if (isToday) classes += ' today';
+
+                const onclick = hasWeight ? `onclick="openModal('${dateStr}')"` : `onclick="openModal('${dateStr}')"`;
+
+                html += `<div class="${classes}" ${onclick}>
+                    <span>${d}</span>
+                    ${hasWeight ? `<span class="day-weight">${displayWeight(data[dateStr])}</span>` : ''}
+                </div>`;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        document.getElementById('cal-prev').addEventListener('click', () => {
+            calMonth--;
+            if (calMonth < 0) { calMonth = 11; calYear--; }
+            renderCalendar();
+        });
+
+        document.getElementById('cal-next').addEventListener('click', () => {
+            calMonth++;
+            if (calMonth > 11) { calMonth = 0; calYear++; }
+            renderCalendar();
+        });
+
+        // ─── Chart ───
+        let weightChart = null;
+
+        function renderChart() {
+            const data = getData();
+            const entries = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+
+            if (entries.length === 0) {
+                if (weightChart) { weightChart.destroy(); weightChart = null; }
+                const ctx = document.getElementById('weight-chart').getContext('2d');
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = '#888';
+                ctx.font = '16px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data yet — log your first weight! 🏁', ctx.canvas.width/2, ctx.canvas.height/2);
+                return;
+            }
+
+            const range = document.getElementById('chart-range').value;
+            let filtered = entries;
+            if (range !== 'all') {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - parseInt(range));
+                filtered = entries.filter(([d]) => new Date(d) >= cutoff);
+            }
+
+            if (filtered.length === 0) filtered = entries.slice(-7);
+
+            const labels = filtered.map(([d]) => {
+                const date = new Date(d + 'T00:00:00');
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+
+            const values = filtered.map(([, w]) => parseFloat(displayWeight(w)));
+
+            // Compute moving average (7-day)
+            const ma = [];
+            for (let i = 0; i < values.length; i++) {
+                const window = values.slice(Math.max(0, i - 6), i + 1);
+                ma.push(parseFloat((window.reduce((a, b) => a + b, 0) / window.length).toFixed(1)));
+            }
+
+            const ctx = document.getElementById('weight-chart').getContext('2d');
+
+            if (weightChart) weightChart.destroy();
+
+            // Determine color based on trend
+            const trendColor = values.length >= 2 && values[values.length-1] <= values[0]
+                ? 'rgba(78, 204, 163, 1)' : 'rgba(233, 69, 96, 1)';
+            const trendBg = values.length >= 2 && values[values.length-1] <= values[0]
+                ? 'rgba(78, 204, 163, 0.1)' : 'rgba(233, 69, 96, 0.1)';
+
+            weightChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: `Weight (${currentUnit})`,
+                            data: values,
+                            borderColor: trendColor,
+                            backgroundColor: trendBg,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: filtered.length > 30 ? 2 : 4,
+                            pointHoverRadius: 6,
+                            borderWidth: 2,
+                        },
+                        {
+                            label: '7-day avg',
+                            data: ma,
+                            borderColor: 'rgba(255,255,255,0.3)',
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            borderWidth: 1.5,
+                            fill: false,
+                            tension: 0.4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: { labels: { color: '#888', font: { size: 11 } } },
+                        tooltip: {
+                            backgroundColor: '#1a1a2e',
+                            borderColor: '#2a2a4a',
+                            borderWidth: 1,
+                            titleColor: '#eaeaea',
+                            bodyColor: '#eaeaea',
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} ${currentUnit}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#888', maxRotation: 45 },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            ticks: { color: '#888', callback: v => v + ' ' + currentUnit },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('chart-range').addEventListener('change', renderChart);
+
+        // ─── Modal ───
+        function openModal(dateStr) {
+            const data = getData();
+            editingDate = dateStr || todayStr();
+
+            const greeting = randomFrom(greetings);
+            const overlay = document.getElementById('modal-overlay');
+            const existing = data[editingDate];
+
+            if (existing !== undefined) {
+                document.getElementById('modal-emoji').textContent = '✏️';
+                document.getElementById('modal-title').textContent = 'Edit Entry';
+                document.getElementById('modal-sub').textContent = `Updating weight for ${formatDate(editingDate)}`;
+                document.getElementById('weight-input').value = displayWeight(existing);
+                document.getElementById('edit-actions').style.display = 'flex';
+                document.getElementById('modal-edit-date').textContent = formatDate(editingDate);
+            } else {
+                document.getElementById('modal-emoji').textContent = greeting.emoji;
+                document.getElementById('modal-title').textContent = greeting.title;
+                document.getElementById('modal-sub').textContent = greeting.sub;
+                document.getElementById('weight-input').value = '';
+                document.getElementById('edit-actions').style.display = 'none';
+                document.getElementById('modal-edit-date').textContent =
+                    editingDate !== todayStr() ? formatDate(editingDate) : '';
+            }
+
+            // Set unit buttons
+            document.querySelectorAll('#unit-toggle button').forEach(b => {
+                b.classList.toggle('active', b.dataset.unit === currentUnit);
+            });
+
+            overlay.classList.remove('hidden');
+            setTimeout(() => document.getElementById('weight-input').focus(), 100);
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+            editingDate = null;
+        }
+
+        function saveWeight() {
+            const input = document.getElementById('weight-input');
+            const val = parseFloat(input.value);
+
+            if (isNaN(val) || val < 20 || val > 700) {
+                input.style.borderColor = 'var(--red)';
+                setTimeout(() => input.style.borderColor = '#2a2a4a', 1000);
+                return;
+            }
+
+            const data = getData();
+            const kg = toKg(val);
+            data[editingDate || todayStr()] = parseFloat(kg.toFixed(2));
+            saveData(data);
+            closeModal();
+            renderAll();
+        }
+
+        function deleteEntry() {
+            if (!editingDate) return;
+            if (!confirm(`Delete weight entry for ${formatDate(editingDate)}?`)) return;
+            const data = getData();
+            delete data[editingDate];
+            saveData(data);
+            closeModal();
+            renderAll();
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // Handle Enter key in modal
+        document.getElementById('weight-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveWeight();
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Close modal on overlay click
+        document.getElementById('modal-overlay').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        // ─── Data Import/Export ───
+        function exportData() {
+            const data = getData();
+            const settings = getSettings();
+            const blob = new Blob([JSON.stringify({ weights: data, settings }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `weight-tracker-${todayStr()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.weights && typeof imported.weights === 'object') {
+                        // Validate all entries are numbers with date-like keys
+                        const valid = Object.entries(imported.weights).every(([k, v]) =>
+                            /^\d{4}-\d{2}-\d{2}$/.test(k) && typeof v === 'number' && v > 0 && v < 1000
+                        );
+                        if (!valid) { alert('Invalid data format!'); return; }
+
+                        const data = getData();
+                        Object.assign(data, imported.weights);
+                        saveData(data);
+                        if (imported.settings) saveSettings(imported.settings);
+                        renderAll();
+                        alert('Data imported successfully! 🎉');
+                    } else {
+                        alert('Invalid file format. Expected a Weight Tracker export.');
+                    }
+                } catch {
+                    alert('Could not read file. Make sure it\'s a valid JSON export.');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            if (!confirm('⚠️ This will delete ALL your weight data. Are you sure?')) return;
+            if (!confirm('Really really sure? This cannot be undone! 😬')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            renderAll();
+        }
+
+        // ─── Render All ───
+        function renderAll() {
+            const data = getData();
+            renderStats();
+            renderCalendar();
+            renderChart();
+            document.getElementById('motivation').textContent = getMotivation(data);
+        }
+
+        // ─── Init ───
+        function init() {
+            // Set initial unit
+            document.querySelectorAll('#unit-toggle button').forEach(b => {
+                b.classList.toggle('active', b.dataset.unit === currentUnit);
+            });
+
+            renderAll();
+
+            // Show daily prompt if no entry for today
+            const data = getData();
+            if (data[todayStr()] === undefined) {
+                setTimeout(() => openModal(), 500);
+            }
+        }
+
+        // Fix stat-card total change display
+        function renderStats() {
+            const data = getData();
+            const entries = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+            const bar = document.getElementById('stats-bar');
+
+            if (entries.length === 0) {
+                bar.innerHTML = '<div class="stat-card"><div class="label">No data yet</div><div class="value">🏁</div><div class="label">Log your first weight!</div></div>';
+                return;
+            }
+
+            const latest = entries[entries.length - 1];
+            const first = entries[0];
+            const totalChangeKg = latest[1] - first[1];
+            const streak = calcStreak(data);
+
+            // Weekly trend
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const weekEntries = entries.filter(([d]) => new Date(d + 'T00:00:00') >= weekAgo);
+            const weeklyChangeKg = weekEntries.length >= 2
+                ? weekEntries[weekEntries.length-1][1] - weekEntries[0][1]
+                : 0;
+
+            let trendEmoji = '⚖️';
+            if (totalChangeKg < -2) trendEmoji = '💪🔥';
+            else if (totalChangeKg < -0.5) trendEmoji = '💪';
+            else if (totalChangeKg > 2) trendEmoji = '🐻';
+            else if (totalChangeKg > 0.5) trendEmoji = '📈';
+
+            const totalDisplay = parseFloat(displayWeight(Math.abs(totalChangeKg)));
+            const weeklyDisplay = parseFloat(displayWeight(Math.abs(weeklyChangeKg)));
+
+            bar.innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Current</div>
+                    <div class="value">${displayWeight(latest[1])}</div>
+                    <div class="label">${currentUnit}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Change</div>
+                    <div class="value" style="color:${totalChangeKg <= 0 ? 'var(--green)' : 'var(--red)'}">
+                        ${totalChangeKg < 0 ? '-' : totalChangeKg > 0 ? '+' : ''}${totalDisplay}
+                    </div>
+                    <div class="emoji">${trendEmoji}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">7-Day Trend</div>
+                    <div class="value" style="color:${weeklyChangeKg <= 0 ? 'var(--green)' : 'var(--red)'}">
+                        ${weeklyChangeKg === 0 ? '—' : (weeklyChangeKg < 0 ? '↓ ' : '↑ ') + weeklyDisplay}
+                    </div>
+                    <div class="label">${currentUnit}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Streak</div>
+                    <div class="value">${streak}${streak >= 3 ? '<span class="streak-flame">🔥</span>' : ''}</div>
+                    <div class="label">day${streak !== 1 ? 's' : ''}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Entries</div>
+                    <div class="value">${entries.length}</div>
+                    <div class="label">weigh-ins</div>
+                </div>
+            `;
+        }
+
+        init();
+    </script>
+</body>
+</html>
