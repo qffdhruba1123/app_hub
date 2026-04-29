@@ -13,7 +13,6 @@
             --bg: #0f0f1a;
             --card: #1a1a2e;
             --accent: #e94560;
-            --accent2: #0f3460;
             --text: #eaeaea;
             --muted: #888;
             --green: #4ecca3;
@@ -132,7 +131,20 @@
         .modal input[type="number"]:focus { border-color: var(--accent); }
         .modal input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
 
+        .input-wrapper .input-unit {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 1rem;
+            pointer-events: none;
+        }
 
         .btn {
             padding: 12px 32px;
@@ -242,13 +254,6 @@
             border: 2px solid var(--accent);
         }
 
-        .cal-day .weight-dot {
-            width: 5px; height: 5px;
-            border-radius: 50%;
-            background: var(--green);
-            margin-top: 2px;
-        }
-
         .cal-day .day-weight {
             font-size: 0.6rem;
             color: var(--green);
@@ -279,19 +284,6 @@
         }
 
         .fab:hover { transform: scale(1.1); box-shadow: 0 6px 25px rgba(233,69,96,0.5); }
-
-        /* Tooltip */
-        .tooltip {
-            position: absolute;
-            background: var(--card);
-            border: 1px solid #2a2a4a;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 0.8rem;
-            pointer-events: none;
-            z-index: 50;
-            white-space: nowrap;
-        }
 
         /* Edit/Delete controls */
         .entry-actions {
@@ -462,6 +454,7 @@
 
         <!-- Data management -->
         <div class="data-actions">
+            <button onclick="promptGoal()">🎯 Set Goal</button>
             <button onclick="exportData()">📥 Export Data</button>
             <button onclick="document.getElementById('import-file').click()">📤 Import Data</button>
             <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -475,7 +468,10 @@
             <div class="modal-emoji" id="modal-emoji">🌅</div>
             <h2 id="modal-title">Good morning!</h2>
             <p class="modal-sub" id="modal-sub">Time to step on the scale of truth...</p>
-            <input type="number" id="weight-input" placeholder="0.00" step="0.01" min="20" max="700" autofocus>
+            <div class="input-wrapper">
+                <input type="number" id="weight-input" placeholder="0.00" step="0.01" min="20" max="700" autofocus>
+                <span class="input-unit">kg</span>
+            </div>
             <div id="modal-edit-date" style="font-size:0.8rem;color:var(--muted);margin-top:8px;"></div>
             <br>
             <button class="btn btn-primary" onclick="saveWeight()">Log it! 💪</button>
@@ -493,7 +489,7 @@
     <script>
         // ─── Data Layer (localStorage) ───
         const STORAGE_KEY = 'weightTrackerData';
-        const SETTINGS_KEY = 'weightTrackerSettings';
+        const GOAL_KEY = 'weightTrackerGoal';
 
         function getData() {
             try {
@@ -507,16 +503,14 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         }
 
-        function getSettings() {
-            try {
-                return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || { unit: 'kg' };
-            } catch {
-                return { unit: 'kg' };
-            }
+        function getGoal() {
+            const g = localStorage.getItem(GOAL_KEY);
+            return g ? parseFloat(g) : null;
         }
 
-        function saveSettings(s) {
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+        function setGoal(kg) {
+            if (kg !== null && kg !== undefined) localStorage.setItem(GOAL_KEY, kg.toString());
+            else localStorage.removeItem(GOAL_KEY);
         }
 
         function todayStr() {
@@ -524,7 +518,6 @@
             return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         }
 
-        // ─── Unit handling ───
         let editingDate = null;
 
         function displayWeight(kg) {
@@ -551,7 +544,7 @@
                 '🏋️ Gravity is losing its grip on you!',
                 '🦸 Is it a bird? A plane? No, it\'s you getting lighter!',
                 '📉 Stonks! (but like, the good kind)',
-                '🎯 Sniping those pounds like a pro!',
+                '🎯 Sniping those kilos like a pro!',
                 '🧈 Melting away like butter on a hot pan!',
             ],
             up: [
@@ -599,9 +592,6 @@
         function randomFrom(arr) {
             return arr[Math.floor(Math.random() * arr.length)];
         }
-
-        // ─── Stats ───
-        // (renderStats defined below after init)
 
         function calcStreak(data) {
             let streak = 0;
@@ -657,9 +647,7 @@
                 if (hasWeight) classes += ' has-weight';
                 if (isToday) classes += ' today';
 
-                const onclick = hasWeight ? `onclick="openModal('${dateStr}')"` : `onclick="openModal('${dateStr}')"`;
-
-                html += `<div class="${classes}" ${onclick}>
+                html += `<div class="${classes}" onclick="openModal('${dateStr}')">
                     <span>${d}</span>
                     ${hasWeight ? `<span class="day-weight">${displayWeight(data[dateStr])}</span>` : ''}
                 </div>`;
@@ -722,6 +710,8 @@
                 ma.push(parseFloat((window.reduce((a, b) => a + b, 0) / window.length).toFixed(2)));
             }
 
+            const goalWeight = getGoal();
+
             const ctx = document.getElementById('weight-chart').getContext('2d');
 
             if (weightChart) weightChart.destroy();
@@ -757,7 +747,16 @@
                             borderWidth: 1.5,
                             fill: false,
                             tension: 0.4,
-                        }
+                        },
+                        ...(goalWeight ? [{
+                            label: 'Goal',
+                            data: Array(values.length).fill(goalWeight),
+                            borderColor: 'rgba(255, 217, 61, 0.6)',
+                            borderDash: [10, 5],
+                            pointRadius: 0,
+                            borderWidth: 1.5,
+                            fill: false,
+                        }] : [])
                     ]
                 },
                 options: {
@@ -874,8 +873,8 @@
         // ─── Data Import/Export ───
         function exportData() {
             const data = getData();
-            const settings = getSettings();
-            const blob = new Blob([JSON.stringify({ weights: data, settings }, null, 2)], { type: 'application/json' });
+            const goal = getGoal();
+            const blob = new Blob([JSON.stringify({ weights: data, goal }, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -901,7 +900,7 @@
                         const data = getData();
                         Object.assign(data, imported.weights);
                         saveData(data);
-                        if (imported.settings) saveSettings(imported.settings);
+                        if (imported.goal) setGoal(imported.goal);
                         renderAll();
                         alert('Data imported successfully! 🎉');
                     } else {
@@ -919,6 +918,25 @@
             if (!confirm('⚠️ This will delete ALL your weight data. Are you sure?')) return;
             if (!confirm('Really really sure? This cannot be undone! 😬')) return;
             localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(GOAL_KEY);
+            renderAll();
+        }
+
+        // ─── Goal ───
+        function promptGoal() {
+            const current = getGoal();
+            const input = prompt('Enter your goal weight in kg' + (current ? ' (current: ' + current + ' kg)' : '') + ':\n(Leave empty to clear)', current || '');
+            if (input === null) return;
+            if (input.trim() === '') {
+                setGoal(null);
+            } else {
+                const val = parseFloat(input);
+                if (isNaN(val) || val < 20 || val > 700) {
+                    alert('Please enter a valid weight between 20 and 700 kg.');
+                    return;
+                }
+                setGoal(val);
+            }
             renderAll();
         }
 
@@ -975,10 +993,39 @@
             const totalDisplay = parseFloat(displayWeight(Math.abs(totalChangeKg)));
             const weeklyDisplay = parseFloat(displayWeight(Math.abs(weeklyChangeKg)));
 
+            const allWeights = entries.map(([, w]) => w);
+            const bestWeight = Math.min(...allWeights);
+            const goal = getGoal();
+
+            let goalHtml = '';
+            if (goal) {
+                const currentW = latest[1];
+                const startW = first[1];
+                const distToGoal = Math.abs(currentW - goal);
+                const totalDist = Math.abs(startW - goal);
+                const reachedGoal = distToGoal < 0.01 ||
+                    (startW > goal && currentW <= goal) ||
+                    (startW < goal && currentW >= goal);
+                const pct = reachedGoal ? 100 : (totalDist > 0 ? Math.max(0, Math.round(((totalDist - distToGoal) / totalDist) * 100)) : 0);
+                goalHtml = `
+                <div class="stat-card">
+                    <div class="label">Goal ${displayWeight(goal)} kg</div>
+                    <div class="value" style="color:${reachedGoal ? 'var(--green)' : 'var(--text)'}">
+                        ${reachedGoal ? '🎉' : pct + '%'}
+                    </div>
+                    <div class="label">${reachedGoal ? 'Reached!' : displayWeight(distToGoal) + ' kg to go'}</div>
+                </div>`;
+            }
+
             bar.innerHTML = `
                 <div class="stat-card">
                     <div class="label">Current</div>
                     <div class="value">${displayWeight(latest[1])}</div>
+                    <div class="label">kg</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Best</div>
+                    <div class="value" style="color:var(--green)">${displayWeight(bestWeight)}</div>
                     <div class="label">kg</div>
                 </div>
                 <div class="stat-card">
@@ -1000,11 +1047,7 @@
                     <div class="value">${streak}${streak >= 3 ? '<span class="streak-flame">🔥</span>' : ''}</div>
                     <div class="label">day${streak !== 1 ? 's' : ''}</div>
                 </div>
-                <div class="stat-card">
-                    <div class="label">Entries</div>
-                    <div class="value">${entries.length}</div>
-                    <div class="label">weigh-ins</div>
-                </div>
+                ${goalHtml}
             `;
         }
 
