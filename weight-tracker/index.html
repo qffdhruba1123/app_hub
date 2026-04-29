@@ -132,29 +132,7 @@
         .modal input[type="number"]:focus { border-color: var(--accent); }
         .modal input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-        .unit-toggle {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            margin-bottom: 16px;
-        }
 
-        .unit-toggle button {
-            padding: 6px 16px;
-            border-radius: 8px;
-            border: 1px solid #2a2a4a;
-            background: var(--bg);
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .unit-toggle button.active {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-        }
 
         .btn {
             padding: 12px 32px;
@@ -395,7 +373,7 @@
 
             .btn { padding: 14px 28px; font-size: 1rem; min-height: 48px; }
             .btn-ghost { min-height: 44px; }
-            .unit-toggle button { padding: 8px 18px; font-size: 0.9rem; min-height: 40px; }
+
 
             .fab { bottom: 20px; right: 16px; width: 56px; height: 56px; font-size: 1.6rem; }
 
@@ -497,11 +475,7 @@
             <div class="modal-emoji" id="modal-emoji">🌅</div>
             <h2 id="modal-title">Good morning!</h2>
             <p class="modal-sub" id="modal-sub">Time to step on the scale of truth...</p>
-            <div class="unit-toggle" id="unit-toggle">
-                <button class="active" data-unit="kg" onclick="setUnit('kg')">kg</button>
-                <button data-unit="lbs" onclick="setUnit('lbs')">lbs</button>
-            </div>
-            <input type="number" id="weight-input" placeholder="0.0" step="0.1" min="20" max="700" autofocus>
+            <input type="number" id="weight-input" placeholder="0.00" step="0.01" min="20" max="700" autofocus>
             <div id="modal-edit-date" style="font-size:0.8rem;color:var(--muted);margin-top:8px;"></div>
             <br>
             <button class="btn btn-primary" onclick="saveWeight()">Log it! 💪</button>
@@ -551,26 +525,10 @@
         }
 
         // ─── Unit handling ───
-        let currentUnit = getSettings().unit || 'kg';
         let editingDate = null;
 
-        function setUnit(u) {
-            currentUnit = u;
-            saveSettings({ ...getSettings(), unit: u });
-            document.querySelectorAll('#unit-toggle button').forEach(b => {
-                b.classList.toggle('active', b.dataset.unit === u);
-            });
-            renderAll();
-        }
-
         function displayWeight(kg) {
-            if (currentUnit === 'lbs') return (kg * 2.20462).toFixed(1);
-            return Number(kg).toFixed(1);
-        }
-
-        function toKg(val) {
-            if (currentUnit === 'lbs') return val / 2.20462;
-            return val;
+            return Number(kg).toFixed(2);
         }
 
         // ─── Humor Engine ───
@@ -643,67 +601,7 @@
         }
 
         // ─── Stats ───
-        function renderStats() {
-            const data = getData();
-            const entries = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
-            const bar = document.getElementById('stats-bar');
-
-            if (entries.length === 0) {
-                bar.innerHTML = '<div class="stat-card"><div class="label">No data yet</div><div class="value">🏁</div><div class="label">Log your first weight!</div></div>';
-                return;
-            }
-
-            const latest = entries[entries.length - 1];
-            const first = entries[0];
-            const totalChange = latest[1] - first[1];
-            const streak = calcStreak(data);
-
-            // Weekly trend
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            const weekEntries = entries.filter(([d]) => new Date(d) >= weekAgo);
-            const weeklyChange = weekEntries.length >= 2
-                ? weekEntries[weekEntries.length-1][1] - weekEntries[0][1]
-                : 0;
-
-            let trendEmoji = '⚖️';
-            if (totalChange < -2) trendEmoji = '💪🔥';
-            else if (totalChange < -0.5) trendEmoji = '💪';
-            else if (totalChange > 2) trendEmoji = '🐻';
-            else if (totalChange > 0.5) trendEmoji = '📈';
-
-            bar.innerHTML = `
-                <div class="stat-card">
-                    <div class="label">Current</div>
-                    <div class="value">${displayWeight(latest[1])}</div>
-                    <div class="label">${currentUnit}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Total Change</div>
-                    <div class="value" style="color:${totalChange <= 0 ? 'var(--green)' : 'var(--red)'}">
-                        ${totalChange <= 0 ? '' : '+'}${displayWeight(Math.abs(totalChange) + (currentUnit === 'lbs' ? (totalChange <= 0 ? -Math.abs(totalChange)*2.20462 + Math.abs(totalChange)*2.20462 : 0) : 0)).replace(/^/, totalChange < 0 ? '-' : (totalChange > 0 ? '+' : ''))}
-                    </div>
-                    <div class="emoji">${trendEmoji}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">7-Day Trend</div>
-                    <div class="value" style="color:${weeklyChange <= 0 ? 'var(--green)' : 'var(--red)'}">
-                        ${weeklyChange === 0 ? '—' : (weeklyChange < 0 ? '↓' : '↑') + ' ' + displayWeight(Math.abs(weeklyChange))}
-                    </div>
-                    <div class="label">${currentUnit}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Streak</div>
-                    <div class="value">${streak}${streak >= 3 ? '<span class="streak-flame">🔥</span>' : ''}</div>
-                    <div class="label">day${streak !== 1 ? 's' : ''}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Entries</div>
-                    <div class="value">${entries.length}</div>
-                    <div class="label">weigh-ins</div>
-                </div>
-            `;
-        }
+        // (renderStats defined below after init)
 
         function calcStreak(data) {
             let streak = 0;
@@ -821,7 +719,7 @@
             const ma = [];
             for (let i = 0; i < values.length; i++) {
                 const window = values.slice(Math.max(0, i - 6), i + 1);
-                ma.push(parseFloat((window.reduce((a, b) => a + b, 0) / window.length).toFixed(1)));
+                ma.push(parseFloat((window.reduce((a, b) => a + b, 0) / window.length).toFixed(2)));
             }
 
             const ctx = document.getElementById('weight-chart').getContext('2d');
@@ -840,7 +738,7 @@
                     labels,
                     datasets: [
                         {
-                            label: `Weight (${currentUnit})`,
+                            label: 'Weight (kg)',
                             data: values,
                             borderColor: trendColor,
                             backgroundColor: trendBg,
@@ -875,7 +773,7 @@
                             titleColor: '#eaeaea',
                             bodyColor: '#eaeaea',
                             callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} ${currentUnit}`
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} kg`
                             }
                         }
                     },
@@ -885,7 +783,7 @@
                             grid: { color: 'rgba(255,255,255,0.05)' }
                         },
                         y: {
-                            ticks: { color: '#888', callback: v => v + ' ' + currentUnit },
+                            ticks: { color: '#888', callback: v => v + ' kg' },
                             grid: { color: 'rgba(255,255,255,0.05)' }
                         }
                     }
@@ -921,11 +819,6 @@
                     editingDate !== todayStr() ? formatDate(editingDate) : '';
             }
 
-            // Set unit buttons
-            document.querySelectorAll('#unit-toggle button').forEach(b => {
-                b.classList.toggle('active', b.dataset.unit === currentUnit);
-            });
-
             overlay.classList.remove('hidden');
             setTimeout(() => document.getElementById('weight-input').focus(), 100);
         }
@@ -946,8 +839,7 @@
             }
 
             const data = getData();
-            const kg = toKg(val);
-            data[editingDate || todayStr()] = parseFloat(kg.toFixed(2));
+            data[editingDate || todayStr()] = parseFloat(val.toFixed(2));
             saveData(data);
             closeModal();
             renderAll();
@@ -1041,11 +933,6 @@
 
         // ─── Init ───
         function init() {
-            // Set initial unit
-            document.querySelectorAll('#unit-toggle button').forEach(b => {
-                b.classList.toggle('active', b.dataset.unit === currentUnit);
-            });
-
             renderAll();
 
             // Show daily prompt if no entry for today
@@ -1092,7 +979,7 @@
                 <div class="stat-card">
                     <div class="label">Current</div>
                     <div class="value">${displayWeight(latest[1])}</div>
-                    <div class="label">${currentUnit}</div>
+                    <div class="label">kg</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Total Change</div>
@@ -1106,7 +993,7 @@
                     <div class="value" style="color:${weeklyChangeKg <= 0 ? 'var(--green)' : 'var(--red)'}">
                         ${weeklyChangeKg === 0 ? '—' : (weeklyChangeKg < 0 ? '↓ ' : '↑ ') + weeklyDisplay}
                     </div>
-                    <div class="label">${currentUnit}</div>
+                    <div class="label">kg</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Streak</div>
